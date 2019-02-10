@@ -1,0 +1,197 @@
+---
+resources:
+- name: service1-code
+  type: time
+  source:
+    interval: 5m
+
+- name: service2-code
+  type: time
+  source:
+    interval: 6m
+
+- name: infrastructure-code
+  type: time
+  source:
+    interval: 23m
+
+- name: e2e-test-code
+  type: time
+  source:
+    interval: 53m
+
+- name: e2e-mock-code
+  type: time
+  source:
+    interval: 1h
+
+- name: smoke-test-code
+  type: time
+  source:
+    interval: 2h
+
+- name: service1
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: service2
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: e2e-mocks
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: dev
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: stage
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: prod
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+jobs:
+- name: service1-build
+  plan:
+  - get: service1-code
+    trigger: true
+  - put: service1
+
+- name: service2-build
+  plan:
+  - get: service2-code
+    trigger: true
+  - put: service2
+
+- name: e2e-test
+  plan:
+  - aggregate:
+    - get: e2e-test-code
+      trigger: true
+    - get: service1
+      passed: [ deploy-to-dev ]
+    - get: service2
+      passed: [ deploy-to-dev ]
+    - get: infrastructure-code
+      passed: [ deploy-to-dev ]
+    - get: e2e-mocks
+      passed: [ deploy-mocks ]
+      trigger: true
+    - get: dev
+      passed: [ deploy-to-dev ]
+      trigger: true
+  - task: e2e-test
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source: {repository: alpine}
+      run:
+        path: echo
+        args: ["Passed"]
+
+- name: deploy-mocks
+  public: true
+  plan:
+  - get: e2e-mock-code
+    trigger: true
+  - put: e2e-mocks
+
+- name: deploy-to-dev
+  plan:
+  - aggregate:
+    - get: infrastructure-code
+      trigger: true
+    - get: service1
+      passed: [ service1-build ]
+      trigger: true
+    - get: service2
+      passed: [ service2-build ]
+      trigger: true
+  - put: dev
+
+- name: deploy-to-stage
+  plan:
+  - aggregate:
+    - get: infrastructure-code
+      passed: [ e2e-test ]
+      trigger: true
+    - get: service1
+      passed: [ e2e-test ]
+      trigger: true
+    - get: service2
+      passed: [ e2e-test ]
+      trigger: true
+  - put: stage
+
+- name: smoke-test
+  plan:
+  - aggregate:
+    - get: smoke-test-code
+      trigger: true
+    - get: service1
+      passed: [ deploy-to-stage ]
+      trigger: true
+    - get: service2
+      passed: [ deploy-to-stage ]
+      trigger: true
+    - get: infrastructure-code
+      passed: [ deploy-to-stage ]
+      trigger: true
+  - task: smoke-test
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source: {repository: alpine}
+      run:
+        path: echo
+        args: ["Passed"]
+
+- name: deploy-to-prod
+  plan:
+  - aggregate:
+    - get: infrastructure-code
+      passed: [ smoke-test ]
+      trigger: true
+    - get: service1
+      passed: [ smoke-test ]
+      trigger: true
+    - get: service2
+      passed: [ smoke-test ]
+      trigger: true
+  - put: prod
+
+# groups:
+# - name: build
+#   jobs:
+#   - service1-build
+#   - service2-build
+# - name: dev
+#   jobs:
+#   - deploy-mocks
+#   - deploy-to-dev
+#   - e2e-test
+# - name: stage
+#   jobs:
+#   - deploy-to-stage
+#   - smoke-test
+# - name: prod
+#   jobs:
+#   - deploy-to-prod
