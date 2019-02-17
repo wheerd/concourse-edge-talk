@@ -1,0 +1,11 @@
+docker-compose -f .\docker-compose-quickstart.yml up -d
+
+fly -t local login --team-name main --concourse-url http://localhost:8080 -k -u admin -p admin
+
+cd simple
+fly -t local set-pipeline -p simple -l credentials.yaml -c .\pipeline.yml
+fly -t local unpause-pipeline -p simple
+
+cd full-demo
+fly -t local set-pipeline -p full-demo -c .\1-build.yml
+fly -t local unpause-pipeline -p full-demo

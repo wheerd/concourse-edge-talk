@@ -1,0 +1,100 @@
+---
+resources:
+- name: service1-code
+  type: time
+  source:
+    interval: 5m
+
+- name: infrastructure-code
+  type: time
+  source:
+    interval: 23m
+
+- name: e2e-test-code
+  type: time
+  source:
+    interval: 53m
+
+- name: service1
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: dev
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: stage
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: prod
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+jobs:
+- name: service1-build
+  plan:
+  - get: service1-code
+    trigger: true
+  - put: service1
+
+- name: e2e-test
+  plan:
+  - aggregate:
+    - get: e2e-test-code
+      trigger: true
+    - get: service1
+      passed: [ deploy-to-dev ]
+      trigger: true
+    - get: infrastructure-code
+      passed: [ deploy-to-dev ]
+      trigger: true
+  - task: e2e-test
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source: {repository: alpine}
+      run:
+        path: echo
+        args: ["Passed"]
+
+- name: deploy-to-dev
+  plan:
+  - aggregate:
+    - get: infrastructure-code
+      trigger: true
+    - get: service1
+      passed: [ service1-build ]
+      trigger: true
+  - put: dev
+
+- name: deploy-to-stage
+  plan:
+  - aggregate:
+    - get: infrastructure-code
+      passed: [ e2e-test ]
+      trigger: true
+    - get: service1
+      passed: [ e2e-test ]
+      trigger: true
+  - put: stage
+
+- name: deploy-to-prod
+  plan:
+  - aggregate:
+    - get: infrastructure-code
+      passed: [ deploy-to-stage ]
+      trigger: true
+    - get: service1
+      passed: [ deploy-to-stage ]
+      trigger: true
+  - put: prod

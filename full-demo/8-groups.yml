@@ -10,20 +10,25 @@ resources:
   source:
     interval: 6m
 
+- name: service3-code
+  type: time
+  source:
+    interval: 7m
+
 - name: infrastructure-code
   type: time
   source:
     interval: 23m
 
+- name: service3-infra-code
+  type: time
+  source:
+    interval: 24m
+
 - name: e2e-test-code
   type: time
   source:
     interval: 53m
-
-- name: e2e-mock-code
-  type: time
-  source:
-    interval: 1h
 
 - name: smoke-test-code
   type: time
@@ -42,7 +47,7 @@ resources:
     interval: 1h
     days: []
 
-- name: e2e-mocks
+- name: service3
   type: time
   source:
     interval: 1h
@@ -54,13 +59,31 @@ resources:
     interval: 1h
     days: []
 
+- name: service3-dev
+  type: time
+  source:
+    interval: 1h
+    days: []
+
 - name: stage
   type: time
   source:
     interval: 1h
     days: []
 
+- name: service3-stage
+  type: time
+  source:
+    interval: 1h
+    days: []
+
 - name: prod
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: service3-prod
   type: time
   source:
     interval: 1h
@@ -79,6 +102,12 @@ jobs:
     trigger: true
   - put: service2
 
+- name: service3-build
+  plan:
+  - get: service3-code
+    trigger: true
+  - put: service3
+
 - name: e2e-test
   plan:
   - aggregate:
@@ -86,15 +115,18 @@ jobs:
       trigger: true
     - get: service1
       passed: [ deploy-to-dev ]
+      trigger: true
     - get: service2
       passed: [ deploy-to-dev ]
+      trigger: true
     - get: infrastructure-code
       passed: [ deploy-to-dev ]
-    - get: e2e-mocks
-      passed: [ deploy-mocks ]
       trigger: true
-    - get: dev
-      passed: [ deploy-to-dev ]
+    - get: service3
+      passed: [ deploy-service3-dev ]
+      trigger: true
+    - get: service3-infra-code
+      passed: [ deploy-service3-dev ]
       trigger: true
   - task: e2e-test
     config:
@@ -105,13 +137,6 @@ jobs:
       run:
         path: echo
         args: ["Passed"]
-
-- name: deploy-mocks
-  public: true
-  plan:
-  - get: e2e-mock-code
-    trigger: true
-  - put: e2e-mocks
 
 - name: deploy-to-dev
   plan:
@@ -125,6 +150,16 @@ jobs:
       passed: [ service2-build ]
       trigger: true
   - put: dev
+
+- name: deploy-service3-dev
+  plan:
+  - aggregate:
+    - get: service3-infra-code
+      trigger: true
+    - get: service3
+      passed: [ service3-build ]
+      trigger: true
+  - put: service3-dev
 
 - name: deploy-to-stage
   plan:
@@ -140,6 +175,17 @@ jobs:
       trigger: true
   - put: stage
 
+- name: deploy-service3-stage
+  plan:
+  - aggregate:
+    - get: service3-infra-code
+      passed: [ e2e-test ]
+      trigger: true
+    - get: service3
+      passed: [ e2e-test ]
+      trigger: true
+  - put: service3-stage
+
 - name: smoke-test
   plan:
   - aggregate:
@@ -153,6 +199,12 @@ jobs:
       trigger: true
     - get: infrastructure-code
       passed: [ deploy-to-stage ]
+      trigger: true
+    - get: service3
+      passed: [ deploy-service3-stage ]
+      trigger: true
+    - get: service3-infra-code
+      passed: [ deploy-service3-stage ]
       trigger: true
   - task: smoke-test
     config:
@@ -178,20 +230,35 @@ jobs:
       trigger: true
   - put: prod
 
-# groups:
-# - name: build
-#   jobs:
-#   - service1-build
-#   - service2-build
-# - name: dev
-#   jobs:
-#   - deploy-mocks
-#   - deploy-to-dev
-#   - e2e-test
-# - name: stage
-#   jobs:
-#   - deploy-to-stage
-#   - smoke-test
-# - name: prod
-#   jobs:
-#   - deploy-to-prod
+- name: deploy-service3-prod
+  plan:
+  - aggregate:
+    - get: service3-infra-code
+      passed: [ smoke-test ]
+      trigger: true
+    - get: service3
+      passed: [ smoke-test ]
+      trigger: true
+  - put: service3-prod
+
+
+groups:
+- name: build
+  jobs:
+  - service1-build
+  - service2-build
+  - service3-build
+- name: dev
+  jobs:
+  - deploy-to-dev
+  - deploy-service3-dev
+  - e2e-test
+- name: stage
+  jobs:
+  - deploy-to-stage
+  - deploy-service3-stage
+  - smoke-test
+- name: prod
+  jobs:
+  - deploy-to-prod
+  - deploy-service3-prod

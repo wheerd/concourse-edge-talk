@@ -1,0 +1,40 @@
+---
+resources:
+- name: service1-code
+  type: time
+  source:
+    interval: 5m
+
+- name: infrastructure-code
+  type: time
+  source:
+    interval: 23m
+
+- name: service1
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: dev
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+jobs:
+- name: service1-build
+  plan:
+  - get: service1-code
+    trigger: true
+  - put: service1
+
+- name: deploy-to-dev
+  plan:
+  - aggregate:
+    - get: infrastructure-code
+      trigger: true
+    - get: service1
+      passed: [ service1-build ]
+      trigger: true
+  - put: dev

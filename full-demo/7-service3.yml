@@ -1,0 +1,242 @@
+---
+resources:
+- name: service1-code
+  type: time
+  source:
+    interval: 5m
+
+- name: service2-code
+  type: time
+  source:
+    interval: 6m
+
+- name: service3-code
+  type: time
+  source:
+    interval: 7m
+
+- name: infrastructure-code
+  type: time
+  source:
+    interval: 23m
+
+- name: service3-infra-code
+  type: time
+  source:
+    interval: 24m
+
+- name: e2e-test-code
+  type: time
+  source:
+    interval: 53m
+
+- name: smoke-test-code
+  type: time
+  source:
+    interval: 2h
+
+- name: service1
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: service2
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: service3
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: dev
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: service3-dev
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: stage
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: service3-stage
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: prod
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+- name: service3-prod
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+jobs:
+- name: service1-build
+  plan:
+  - get: service1-code
+    trigger: true
+  - put: service1
+
+- name: service2-build
+  plan:
+  - get: service2-code
+    trigger: true
+  - put: service2
+
+- name: service3-build
+  plan:
+  - get: service3-code
+    trigger: true
+  - put: service3
+
+- name: e2e-test
+  plan:
+  - aggregate:
+    - get: e2e-test-code
+      trigger: true
+    - get: service1
+      passed: [ deploy-to-dev ]
+      trigger: true
+    - get: service2
+      passed: [ deploy-to-dev ]
+      trigger: true
+    - get: infrastructure-code
+      passed: [ deploy-to-dev ]
+      trigger: true
+    - get: service3
+      passed: [ deploy-service3-dev ]
+      trigger: true
+    - get: service3-infra-code
+      passed: [ deploy-service3-dev ]
+      trigger: true
+  - task: e2e-test
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source: {repository: alpine}
+      run:
+        path: echo
+        args: ["Passed"]
+
+- name: deploy-to-dev
+  plan:
+  - aggregate:
+    - get: infrastructure-code
+      trigger: true
+    - get: service1
+      passed: [ service1-build ]
+      trigger: true
+    - get: service2
+      passed: [ service2-build ]
+      trigger: true
+  - put: dev
+
+- name: deploy-service3-dev
+  plan:
+  - aggregate:
+    - get: service3-infra-code
+      trigger: true
+    - get: service3
+      passed: [ service3-build ]
+      trigger: true
+  - put: service3-dev
+
+- name: deploy-to-stage
+  plan:
+  - aggregate:
+    - get: infrastructure-code
+      passed: [ e2e-test ]
+      trigger: true
+    - get: service1
+      passed: [ e2e-test ]
+      trigger: true
+    - get: service2
+      passed: [ e2e-test ]
+      trigger: true
+  - put: stage
+
+- name: deploy-service3-stage
+  plan:
+  - aggregate:
+    - get: service3-infra-code
+      passed: [ e2e-test ]
+      trigger: true
+    - get: service3
+      passed: [ e2e-test ]
+      trigger: true
+  - put: service3-stage
+
+- name: smoke-test
+  plan:
+  - aggregate:
+    - get: smoke-test-code
+      trigger: true
+    - get: service1
+      passed: [ deploy-to-stage ]
+      trigger: true
+    - get: service2
+      passed: [ deploy-to-stage ]
+      trigger: true
+    - get: infrastructure-code
+      passed: [ deploy-to-stage ]
+      trigger: true
+    - get: service3
+      passed: [ deploy-service3-stage ]
+      trigger: true
+    - get: service3-infra-code
+      passed: [ deploy-service3-stage ]
+      trigger: true
+  - task: smoke-test
+    config:
+      platform: linux
+      image_resource:
+        type: docker-image
+        source: {repository: alpine}
+      run:
+        path: echo
+        args: ["Passed"]
+
+- name: deploy-to-prod
+  plan:
+  - aggregate:
+    - get: infrastructure-code
+      passed: [ smoke-test ]
+      trigger: true
+    - get: service1
+      passed: [ smoke-test ]
+      trigger: true
+    - get: service2
+      passed: [ smoke-test ]
+      trigger: true
+  - put: prod
+
+- name: deploy-service3-prod
+  plan:
+  - aggregate:
+    - get: service3-infra-code
+      passed: [ smoke-test ]
+      trigger: true
+    - get: service3
+      passed: [ smoke-test ]
+      trigger: true
+  - put: service3-prod

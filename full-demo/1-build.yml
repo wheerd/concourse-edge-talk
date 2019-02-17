@@ -1,0 +1,19 @@
+---
+resources:
+- name: service1-code
+  type: time
+  source:
+    interval: 5m
+
+- name: service1
+  type: time
+  source:
+    interval: 1h
+    days: []
+
+jobs:
+- name: service1-build
+  plan:
+  - get: service1-code
+    trigger: true
+  - put: service1
