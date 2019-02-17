@@ -4,7 +4,7 @@ resources:
   source:
     uri: git@github.com:wheerd/concourse-edge-talk.git
     branch: master
-    paths: [ simple ]
+    paths: [ basic ]
     private_key: ((github-key))
 
 - name: image
@@ -17,11 +17,9 @@ resources:
 
 jobs:
 - name: build
-  public: true
-  serial: true
   plan:
   - get: code
     trigger: true
   - put: image
     params:
-      build: code/simple
+      build: code/basic

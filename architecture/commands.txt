@@ -1,0 +1,14 @@
+docker-compose -f .\docker-compose-quickstart.yml up -d
+
+fly -t local login --team-name main --concourse-url http://localhost:8080 -k -u admin -p admin
+
+cd basic
+fly -t local set-pipeline -p basic -l credentials.yaml -c .\pipeline.yml
+fly -t local unpause-pipeline -p basic
+
+docker pull wheerd/concourse-edge-talk
+docker run --rm wheerd/concourse-edge-talk
+
+cd ../architecture
+fly -t local set-pipeline -p architecture -c .\1-build.yml
+fly -t local unpause-pipeline -p architecture
