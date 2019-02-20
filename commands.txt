@@ -6,6 +6,10 @@ cd basic
 fly -t local set-pipeline -p basic -l credentials.yaml -c .\pipeline.yml
 fly -t local unpause-pipeline -p basic
 
+git add content.txt
+git commit -m "Some changes"
+git push
+
 docker pull wheerd/concourse-edge-talk
 docker run --rm wheerd/concourse-edge-talk
 
